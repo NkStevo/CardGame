@@ -2,6 +2,7 @@ package com.mygdx.game;
 
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.Stack;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
@@ -12,6 +13,12 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton.TextButtonStyle;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 
 public class BlackjackScreen implements Screen {
 	private CardGame game;
@@ -23,6 +30,12 @@ public class BlackjackScreen implements Screen {
 	private TextureRegion card;
 	private Sprite cardSprite;
 	
+	private Stage stage;
+	private Skin skin;
+	
+	private TextButton drawCardButton;
+	private TextButton standButton;
+	
 	private OrthographicCamera camera;
 	
 	private ArrayList<Card> cardDeck;
@@ -30,31 +43,73 @@ public class BlackjackScreen implements Screen {
 	/**Each ArrayList of Cards is a player's hand
 	 * The ArrayList at index 0 is the dealer's hand
 	 */
-	private ArrayList<ArrayList<Card>> playerHands;
-
+	private Stack<Player> players;
 	
 	private int cardInd;
-	private Card testCard;
+	private boolean drawnCard;
+	private boolean stand;
+	private Card displayCard;
 	
-	public BlackjackScreen(CardGame game) {
+	public BlackjackScreen(CardGame game, Stack<Player> players) {
 		this.game = game;
 		
 		batch = game.batch;
 		font = game.font;
 		
-		camera = new OrthographicCamera();
+		skin = new Skin();
+		stage = new Stage();
+		Gdx.input.setInputProcessor(stage);
 		
+		BitmapFont buttonFont = new BitmapFont();
+		
+		skin.add("default", buttonFont);
+		
+		TextButtonStyle textButtonStyle = new TextButtonStyle();
+		
+		textButtonStyle.font = skin.getFont("default");
+		textButtonStyle.pressedOffsetY = -5;
+		
+		drawCardButton = new TextButton("Draw Card", textButtonStyle);
+		standButton = new TextButton("Stand", textButtonStyle);
+		
+		stage.addActor(drawCardButton);
+		stage.addActor(standButton);
+		
+		this.players = players;
+		
+		stand = false;
+		drawnCard = false;
+		
+		drawCardButton.setPosition(100, 300);
+		standButton.setPosition(100, 260);
+		
+		drawCardButton.addListener(new ChangeListener() {
+			@Override
+			public void changed(ChangeEvent event, Actor actor) {
+				Random randGen = new Random();
+				
+				displayCard = cardDeck.remove(randGen.nextInt(cardDeck.size()));
+				drawnCard = true;
+				
+				System.out.println(displayCard.getSuit());
+				System.out.println(displayCard.getValue());
+				System.out.println(displayCard.getAltVal(0));
+			}
+		});
+		
+		standButton.addListener(new ChangeListener() {
+			@Override
+			public void changed(ChangeEvent event, Actor actor) {
+				stand = true;
+			}
+		});
+		
+		camera = new OrthographicCamera();
 		Random randGen = new Random();
-		cardInd = randGen.nextInt(51);
 		
 		this.loadCards();
 		
-		testCard = cardDeck.remove(cardInd);
-		
-		System.out.println(testCard.getSuit());
-		System.out.println(testCard.getValue());
-		System.out.println(testCard.getAltVal(0));
-		
+		System.out.println(randGen.nextInt(cardDeck.size()));
 	}
 	
 	@Override
@@ -65,12 +120,24 @@ public class BlackjackScreen implements Screen {
 
 	@Override
 	public void render(float delta) {
+		boolean turnDone = false;
+		
 		Gdx.gl.glClearColor(6f/255f, 156f/255f, 36f/255f, 1);
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 		
+		stage.act(Math.min(Gdx.graphics.getDeltaTime(), 1 / 30f));
+		stage.draw();
+		
 		batch.begin();
 		
-		testCard.getSprite().draw(batch);	
+		if (!players.empty()) {
+			turnDone = turn(players.peek());
+			
+			if (turnDone) {
+				players.pop();
+				turnDone = false;
+			}
+		}
 		
 		batch.end();
 	}
@@ -185,5 +252,27 @@ public class BlackjackScreen implements Screen {
 				xPos += width;
 			}
 		}
+	}
+
+	public boolean turn(Player player) {
+		if (drawnCard) {
+			player.addToHand(displayCard);
+			System.out.println(player.getValue());
+			drawnCard = false;
+		}
+			
+		if (player.getValue() > 21 || stand){
+			stand = false;
+			return true;
+		}
+			
+		game.font.draw(game.batch, new Integer(player.getValue()).toString(), 350, 400);
+		game.font.draw(game.batch, player.getName(), 400, 400);
+			
+		if (displayCard != null) {
+			displayCard.getSprite().draw(batch);
+		}
+		
+		return false;
 	}
 }

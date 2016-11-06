@@ -28,6 +28,7 @@ public class Card {
 	public Card(Sprite sprite, Suit suit, int val1, int val2) {
 		this(sprite, suit, val1);
 		
+		this.value = val1;
 		this.val1 = val1;
 		this.val2 = val2;
 	}
